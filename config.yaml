@@ -1,0 +1,11 @@
+model:
+  name: tinyllama:latest
+  num_predict: 128
+  temperature: 0.7
+pipeline:
+  prompting_technique: few-shot
+  sarcasm_model: tinyllama:latest
+  sentiment_model: tinyllama:latest
+  summarization_model: tinyllama:latest
+  use_sarcasm_detection: true
+  use_sentiment_for_summarization: true
