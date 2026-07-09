@@ -12,6 +12,6 @@ pipeline:
   use_sarcasm_for_summarization: true
   use_sarcasm_for_sentiment: true
   sarcasm_backend: fine-tuned
-  sarcasm_finetuned_path: models/sarcasm_distilbert/final
+  sarcasm_finetuned_path: models/sarcasm_bertweet/final
   data_dir: data/processed
   output_dir: results

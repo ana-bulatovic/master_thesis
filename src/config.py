@@ -33,7 +33,7 @@ class PipelineConfig:
     use_sarcasm_for_summarization: bool = True
     use_sarcasm_for_sentiment: bool = True
     sarcasm_backend: str = "fine-tuned"
-    sarcasm_finetuned_path: str = "models/sarcasm_distilbert/final"
+    sarcasm_finetuned_path: str = "models/sarcasm_bertweet/final"
     data_dir: str = "data/processed"
     output_dir: str = "results"
     batch_size: int = 8

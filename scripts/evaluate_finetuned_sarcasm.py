@@ -4,7 +4,7 @@ Evaluate a fine-tuned sarcasm model on the test split.
 
 Usage:
   python scripts/evaluate_finetuned_sarcasm.py
-  python scripts/evaluate_finetuned_sarcasm.py --model-dir models/sarcasm_distilbert/final --limit 100
+  python scripts/evaluate_finetuned_sarcasm.py --model-dir models/sarcasm_bertweet/final --limit 100
 """
 
 from __future__ import annotations
@@ -16,13 +16,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
 
+from sklearn.metrics import classification_report, f1_score, recall_score
+
 from path_setup import PROJECT_ROOT
 from data.dataset_loader import DatasetLoader
 from evaluation.evaluator import Evaluator
 from models.sarcasm_classifier import FinetunedSarcasmClassifier
 
 RESULTS_DIR = PROJECT_ROOT / "results"
-DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "sarcasm_distilbert" / "final"
+DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "sarcasm_bertweet" / "final"
 
 
 def parse_args() -> argparse.Namespace:
@@ -78,6 +80,32 @@ def main() -> int:
         )
 
     metrics = Evaluator.evaluate_classification(predictions, references)
+    sarcastic_recall = recall_score(
+        references,
+        predictions,
+        labels=["non-sarcastic", "sarcastic"],
+        average="binary",
+        pos_label="sarcastic",
+        zero_division=0,
+    )
+    sarcastic_f1 = f1_score(
+        references,
+        predictions,
+        labels=["non-sarcastic", "sarcastic"],
+        average="binary",
+        pos_label="sarcastic",
+        zero_division=0,
+    )
+    metrics["recall_sarcastic"] = sarcastic_recall
+    metrics["f1_sarcastic"] = sarcastic_f1
+
+    report = classification_report(
+        references,
+        predictions,
+        labels=["non-sarcastic", "sarcastic"],
+        zero_division=0,
+    )
+
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     output_file = RESULTS_DIR / f"evaluation_finetuned_sarcasm_{run_id}.json"
 
@@ -86,7 +114,7 @@ def main() -> int:
     if metadata_path.exists():
         base_model = json.loads(metadata_path.read_text(encoding="utf-8")).get("base_model", "unknown")
 
-    report = {
+    report_payload = {
         "run_id": run_id,
         "timestamp": datetime.now().isoformat(),
         "approach": "fine-tuned",
@@ -99,6 +127,7 @@ def main() -> int:
             {
                 "task": "sarcasm",
                 "metrics": metrics,
+                "classification_report": report,
                 "samples": samples,
             }
         ],
@@ -106,13 +135,15 @@ def main() -> int:
     }
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    output_file.write_text(json.dumps(report_payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print("\nResults:")
-    print(f"  Accuracy:  {metrics['accuracy']:.4f}")
-    print(f"  Precision: {metrics['precision']:.4f}")
-    print(f"  Recall:    {metrics['recall']:.4f}")
-    print(f"  F1:        {metrics['f1']:.4f}")
+    print(f"  Accuracy:          {metrics['accuracy']:.4f}")
+    print(f"  F1 (weighted):     {metrics['f1']:.4f}")
+    print(f"  F1 (sarcastic):    {metrics['f1_sarcastic']:.4f}")
+    print(f"  Recall (sarcastic):{metrics['recall_sarcastic']:.4f}")
+    print("\nPer-class report:")
+    print(report)
     print(f"\nSaved to: {output_file.relative_to(PROJECT_ROOT)}")
     return 0
 

@@ -181,6 +181,7 @@ class NLPPipeline:
                 review,
                 model=pipeline_config.sentiment_model,
                 sarcasm=sarcasm_result["is_sarcastic"],
+                sarcasm_confidence=sarcasm_result.get("confidence"),
                 sarcasm_aware=True,
             )
 

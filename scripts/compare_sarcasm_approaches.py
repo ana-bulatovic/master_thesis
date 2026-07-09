@@ -29,7 +29,7 @@ from pipeline.pipeline import NLPPipeline
 from run_evaluation import sarcasm_prediction_to_label
 
 RESULTS_DIR = PROJECT_ROOT / "results"
-DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "sarcasm_distilbert" / "final"
+DEFAULT_MODEL_DIR = PROJECT_ROOT / "models" / "sarcasm_bertweet" / "final"
 
 
 def evaluate_finetuned(

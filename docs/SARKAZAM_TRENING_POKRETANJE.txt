@@ -1,0 +1,224 @@
+================================================================================
+  SARKAZAM MODEL — KOMPLETNO UPUTSTVO ZA POKRETANJE (kopiraj na drugi računar)
+================================================================================
+
+Projekat: Master rad NLP pipeline
+Zadatak:   Fine-tuning detektora sarkazma (BERTweet + class weights)
+Datum:     jul 2026
+
+--------------------------------------------------------------------------------
+ŠTA JE NOVO U TRENIRANJU
+--------------------------------------------------------------------------------
+
+- Base model: vinai/bertweet-base (bolji za Twitter/iSarcasmEval tekst)
+- Class weights: model više ne favorizuje samo "non-sarcastic" klasu
+- Validation: 10% iz train seta (test set ostaje netaknut)
+- Metrike: F1 i recall posebno za SARCASTIC klasu
+- Model se čuva u: models/sarcasm_bertweet/final
+
+--------------------------------------------------------------------------------
+PREDUSLOVI NA DRUGOM RAČUNARU
+--------------------------------------------------------------------------------
+
+1. Python 3.10 ili 3.11
+2. Kopiraj CEО projekat (folder "Master rad") na drugi računar
+3. GPU preporučen (NVIDIA), ali radi i na CPU (sporije)
+4. Internet za preuzimanje modela sa Hugging Face
+
+Proveri Python:
+  python --version
+
+--------------------------------------------------------------------------------
+KORAK 1 — OTVORI TERMINAL U FOLDERU PROJEKTA
+--------------------------------------------------------------------------------
+
+PowerShell (Windows):
+
+  cd "C:\putanja\do\Master rad"
+
+(zameni putanju stvarnom lokacijom projekta)
+
+--------------------------------------------------------------------------------
+KORAK 2 — VIRTUALNO OKRUŽENJE I PAKETI
+--------------------------------------------------------------------------------
+
+  python -m venv venv
+  .\venv\Scripts\Activate.ps1
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+
+Ako Activate.ps1 ne radi (execution policy):
+
+  Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+  .\venv\Scripts\Activate.ps1
+
+Linux/Mac:
+
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install -r requirements.txt
+
+--------------------------------------------------------------------------------
+KORAK 3 — PROVERI DA LI POSTOJI DATASET
+--------------------------------------------------------------------------------
+
+Treba da postoje fajlovi:
+
+  data/processed/sarcasm/train.jsonl
+  data/processed/sarcasm/test.jsonl
+
+Ako NE postoje, pripremi dataset:
+
+  python scripts/prepare_datasets.py --dataset sarcasm
+
+--------------------------------------------------------------------------------
+KORAK 4 — TRENIRANJE (GLAVNA KOMANDA)
+--------------------------------------------------------------------------------
+
+Preporučeno (BERTweet, 5 epoha, class weights):
+
+  python scripts/train_sarcasm.py
+
+Očekivano trajanje:
+  - GPU: ~10-30 min
+  - CPU: ~1-3 sata
+
+Model se čuva u:
+  models/sarcasm_bertweet/final/
+
+--------------------------------------------------------------------------------
+KORAK 5 — EVALUACIJA NA TEST SETU
+--------------------------------------------------------------------------------
+
+  python scripts/evaluate_finetuned_sarcasm.py
+
+Gledaj posebno:
+  - F1 (sarcastic)
+  - Recall (sarcastic)   <-- koliko dobro hvata sarkazam
+
+Rezultat se čuva u:
+  results/evaluation_finetuned_sarcasm_YYYYMMDD_HHMMSS.json
+
+--------------------------------------------------------------------------------
+KORAK 6 — UPORI MODEL U PIPELINE
+--------------------------------------------------------------------------------
+
+U config/config.yaml već stoji:
+
+  sarcasm_backend: fine-tuned
+  sarcasm_finetuned_path: models/sarcasm_bertweet/final
+
+Ako si trenirala u drugi folder, promeni putanju u config.yaml.
+
+Proveri setup:
+
+  python scripts/verify_setup.py
+
+Pokreni pipeline na jednom primeru:
+
+  python scripts/run_pipeline.py --review "Oh wonderful, another product that broke in two days. Just perfect."
+
+--------------------------------------------------------------------------------
+KORAK 7 (OPCIONO) — UPOREDI FINE-TUNED VS LLM
+--------------------------------------------------------------------------------
+
+  python scripts/compare_sarcasm_approaches.py --limit 50
+
+--------------------------------------------------------------------------------
+ALTERNATIVNE KOMANDE ZA TRENIRANJE
+--------------------------------------------------------------------------------
+
+Više epoha:
+
+  python scripts/train_sarcasm.py --epochs 8
+
+RoBERTa umesto BERTweet:
+
+  python scripts/train_sarcasm.py --model-name roberta-base --output-dir models/sarcasm_roberta
+
+DistilBERT (brži, slabiji):
+
+  python scripts/train_sarcasm.py --model-name distilbert-base-uncased --output-dir models/sarcasm_distilbert
+
+Bez class weights (za poređenje):
+
+  python scripts/train_sarcasm.py --no-class-weights
+
+CPU bez mixed precision:
+
+  python scripts/train_sarcasm.py --no-fp16
+
+Manji batch ako nema dovoljno RAM/GPU memorije:
+
+  python scripts/train_sarcasm.py --batch-size 8
+
+--------------------------------------------------------------------------------
+ŠTA ZNAČI DOBAR REZULTAT
+--------------------------------------------------------------------------------
+
+Na test setu (iSarcasmEval):
+
+  F1 (sarcastic)     > 0.70   dobro
+  Recall (sarcastic) > 0.65   dobro (hvata sarkazam)
+  F1 (weighted)      > 0.80   dobro ukupno
+
+Ako je recall_sarcastic nizak (< 0.55):
+  - probaj --epochs 8
+  - probaj roberta-base ili bertweet
+  - NE koristi --no-class-weights
+
+--------------------------------------------------------------------------------
+ČESTI PROBLEMI
+--------------------------------------------------------------------------------
+
+1) "Train file not found"
+   -> python scripts/prepare_datasets.py --dataset sarcasm
+
+2) "CUDA out of memory"
+   -> python scripts/train_sarcasm.py --batch-size 8 --no-fp16
+
+3) "Model not found" u pipeline-u
+   -> prvo završi trening (Korak 4)
+   -> proveri da postoji models/sarcasm_bertweet/final/
+
+4) Sporo na CPU
+   -> normalno; koristi manje epoha za test: --epochs 2
+
+5) Hugging Face download greška
+   -> proveri internet
+   -> pip install --upgrade transformers huggingface-hub
+
+--------------------------------------------------------------------------------
+BRZI COPY-PASTE (sve odjednom, Windows PowerShell)
+--------------------------------------------------------------------------------
+
+cd "C:\putanja\do\Master rad"
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python scripts/prepare_datasets.py --dataset sarcasm
+python scripts/train_sarcasm.py
+python scripts/evaluate_finetuned_sarcasm.py
+python scripts/verify_setup.py
+python scripts/run_pipeline.py --review "Great product, totally worth every penny... NOT!"
+
+--------------------------------------------------------------------------------
+FAJLOVI KOJE TREBA KOPIRATI NA DRUGI RAČUNAR
+--------------------------------------------------------------------------------
+
+Minimum:
+  - ceo src/
+  - scripts/
+  - config/
+  - data/processed/sarcasm/   (ili data/raw/sarcasm/ + prepare_datasets)
+  - requirements.txt
+
+NE moraš kopirati:
+  - models/          (kreira se posle treninga)
+  - venv/            (kreira se na novom računaru)
+  - results/         (opciono)
+
+Posle treninga kopiraj nazad:
+  - models/sarcasm_bertweet/final/   (ceo folder modela)
+
+================================================================================
