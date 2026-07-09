@@ -75,7 +75,7 @@ def experiment_row_from_task_result(
         "technique": technique,
         "task": task,
         "source": task_result.get("source"),
-        "variant": task_result.get("variant"),
+        "variant": friendly_variant(task_result.get("variant")),
     }
 
     if task in ("sarcasm", "sentiment"):
@@ -248,10 +248,15 @@ def main() -> int:
                     )
 
                 elif task == "sentiment":
-                    task_result = evaluate_sentiment(pipeline, records, logger)
-                    experiments.append(
-                        experiment_row_from_task_result(model, technique, task_result)
-                    )
+                    for use_sarcasm_flag in (False, True):
+                        variant_name = "with_sarcasm" if use_sarcasm_flag else "baseline"
+                        logger.info("    Variant: %s", variant_name)
+                        task_result = evaluate_sentiment(
+                            pipeline, records, logger, use_sarcasm=use_sarcasm_flag
+                        )
+                        experiments.append(
+                            experiment_row_from_task_result(model, technique, task_result)
+                        )
 
                 elif task == "summarization":
                     for use_sentiment, use_sarcasm, variant_name in get_summarization_variants(

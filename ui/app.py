@@ -200,6 +200,12 @@ class StreamlitApp:
             help="Use sarcasm detection information in summarization"
         )
 
+        use_sarcasm_for_sentiment = st.sidebar.checkbox(
+            "Sarcasm-Aware Sentiment",
+            value=True,
+            help="Use sarcasm detection to improve sentiment classification"
+        )
+
         # Ollama Status
         st.sidebar.subheader("🔗 Ollama Status")
         if self.check_ollama_status():
@@ -212,7 +218,8 @@ class StreamlitApp:
         if st.sidebar.button("🔄 Apply Configuration", type="primary"):
             self.update_pipeline_config(
                 selected_model, technique, temperature, max_tokens,
-                use_sarcasm, use_sentiment, use_sentiment_for_summary, use_sarcasm_for_summary
+                use_sarcasm, use_sentiment, use_sentiment_for_summary, use_sarcasm_for_summary,
+                use_sarcasm_for_sentiment
             )
             st.session_state.config_changed = True
             st.rerun()
@@ -236,6 +243,7 @@ class StreamlitApp:
             'use_sentiment': use_sentiment,
             'use_sentiment_for_summary': use_sentiment_for_summary,
             'use_sarcasm_for_summary': use_sarcasm_for_summary,
+            'use_sarcasm_for_sentiment': use_sarcasm_for_sentiment,
         }
 
     def run_ollama_command(self, args):
@@ -269,7 +277,7 @@ class StreamlitApp:
 
     def update_pipeline_config(self, model, technique, temperature, max_tokens,
                              use_sarcasm, use_sentiment, use_sentiment_for_summary,
-                             use_sarcasm_for_summary):
+                             use_sarcasm_for_summary, use_sarcasm_for_sentiment):
         """Update pipeline configuration"""
         # Update config.yaml
         config = {
@@ -286,6 +294,8 @@ class StreamlitApp:
                 'use_sarcasm_detection': use_sarcasm,
                 'use_sentiment_for_summarization': use_sentiment_for_summary,
                 'use_sarcasm_for_summarization': use_sarcasm_for_summary,
+                'use_sarcasm_for_sentiment': use_sarcasm_for_sentiment,
+                'sarcasm_backend': 'fine-tuned' if use_sarcasm else 'llm',
             }
         }
 
@@ -534,7 +544,16 @@ class StreamlitApp:
             sentiment = result['sentiment_classification']['sentiment'].upper()
             color_map = {'POSITIVE': 'green', 'NEGATIVE': 'red', 'NEUTRAL': 'orange'}
             color = color_map.get(sentiment, 'blue')
-            st.markdown(f"**Sentiment:** <span style='color:{color};font-weight:bold'>{sentiment}</span>", unsafe_allow_html=True)
+            st.markdown(f"**Sentiment (baseline):** <span style='color:{color};font-weight:bold'>{sentiment}</span>", unsafe_allow_html=True)
+
+            if result.get('sentiment_classification_sarcasm_aware'):
+                sa_sentiment = result['sentiment_classification_sarcasm_aware']['sentiment'].upper()
+                sa_color = color_map.get(sa_sentiment, 'blue')
+                st.markdown(
+                    f"**Sentiment (sarcasm-aware):** "
+                    f"<span style='color:{sa_color};font-weight:bold'>{sa_sentiment}</span>",
+                    unsafe_allow_html=True,
+                )
 
         with col2:
             # Summaries

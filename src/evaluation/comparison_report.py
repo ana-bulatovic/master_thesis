@@ -12,6 +12,7 @@ VARIANT_LABELS = {
     "with_sentiment": "+sentiment",
     "with_sarcasm": "+sarcasm",
     "with_sentiment_and_sarcasm": "+sentiment+sarcasm",
+    "baseline": "baseline",
 }
 
 

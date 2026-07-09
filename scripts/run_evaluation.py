@@ -115,19 +115,34 @@ def evaluate_sentiment(
     pipeline: NLPPipeline,
     records: List[Dict[str, Any]],
     logger: logging.Logger,
+    use_sarcasm: bool = False,
 ) -> Dict[str, Any]:
     predictions: List[str] = []
     references: List[str] = []
     samples: List[Dict[str, Any]] = []
 
-    logger.info("Running sentiment classification on %d samples...", len(records))
+    variant = "with_sarcasm" if use_sarcasm else "baseline"
+    logger.info(
+        "Running sentiment classification (%s) on %d samples...",
+        variant,
+        len(records),
+    )
 
     for index, record in enumerate(records, 1):
         text = record["text"]
         reference = record["label"]
+        sarcasm = None
+
+        if use_sarcasm:
+            sarcasm_result = pipeline.detect_sarcasm(text)
+            if sarcasm_result:
+                sarcasm = sarcasm_result["is_sarcastic"]
 
         result = pipeline.sentiment_classifier.classify(
-            text, model=pipeline.config.pipeline_config.sentiment_model
+            text,
+            model=pipeline.config.pipeline_config.sentiment_model,
+            sarcasm=sarcasm,
+            sarcasm_aware=use_sarcasm and sarcasm is not None,
         )
         predicted = result["sentiment"]
         correct = predicted == reference
@@ -141,6 +156,7 @@ def evaluate_sentiment(
                 "reference": reference,
                 "predicted": predicted,
                 "correct": correct,
+                "sarcasm_used": sarcasm if use_sarcasm else None,
                 "model_response": result.get("response", ""),
             }
         )
@@ -159,7 +175,7 @@ def evaluate_sentiment(
     metrics = Evaluator.evaluate_classification(
         predictions, references, labels=["positive", "negative", "neutral"]
     )
-    return {"task": "sentiment", "metrics": metrics, "samples": samples}
+    return {"task": "sentiment", "variant": variant, "metrics": metrics, "samples": samples}
 
 
 def evaluate_summarization(
@@ -203,9 +219,21 @@ def evaluate_summarization(
         if use_sentiment:
             sentiment = record.get("label")
             if not sentiment or sentiment in ("sarcastic", "non-sarcastic"):
-                sentiment_result = pipeline.sentiment_classifier.classify(
-                    text, model=pipeline.config.pipeline_config.sentiment_model
-                )
+                if use_sarcasm:
+                    sarcasm_result = pipeline.detect_sarcasm(text)
+                    sarcasm_for_sentiment = (
+                        sarcasm_result["is_sarcastic"] if sarcasm_result else None
+                    )
+                    sentiment_result = pipeline.sentiment_classifier.classify(
+                        text,
+                        model=pipeline.config.pipeline_config.sentiment_model,
+                        sarcasm=sarcasm_for_sentiment,
+                        sarcasm_aware=sarcasm_for_sentiment is not None,
+                    )
+                else:
+                    sentiment_result = pipeline.sentiment_classifier.classify(
+                        text, model=pipeline.config.pipeline_config.sentiment_model
+                    )
                 sentiment = sentiment_result["sentiment"]
 
         if use_sarcasm:
@@ -281,6 +309,7 @@ def print_summary(report: Dict[str, Any], logger: logging.Logger) -> None:
 
         if task in ("sarcasm", "sentiment"):
             metrics = task_result["metrics"]
+            logger.info("  Variant:   %s", task_result.get("variant", "-"))
             logger.info("  Accuracy:  %.3f", metrics["accuracy"])
             logger.info("  Precision: %.3f", metrics["precision"])
             logger.info("  Recall:    %.3f", metrics["recall"])
@@ -410,7 +439,9 @@ def main() -> int:
         elif task == "sentiment":
             records = loader.load_task_split("sentiment", split=args.split)
             records = records[: args.limit]
-            task_results.append(evaluate_sentiment(pipeline, records, logger))
+            task_results.append(evaluate_sentiment(pipeline, records, logger, use_sarcasm=False))
+            if args.with_sarcasm:
+                task_results.append(evaluate_sentiment(pipeline, records, logger, use_sarcasm=True))
 
         elif task == "summarization":
             records = loader.load_task_split(
