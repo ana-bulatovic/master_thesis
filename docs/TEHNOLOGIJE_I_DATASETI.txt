@@ -1,0 +1,79 @@
+TEHNOLOGIJE I SKUPOVI PODATAKA
+Master rad — kratki pregled za uključivanje u rad
+
+================================================================================
+KORIŠĆENE TEHNOLOGIJE I BIBLIOTEKE
+================================================================================
+
+Programski jezik: Python 3
+
+Spoljašnji alati:
+- Ollama — lokalno pokretanje velikih jezičkih modela (Llama, Mistral)
+- Hugging Face Hub — preuzimanje datasetova i baznih transformer modela
+
+Glavne Python biblioteke:
+- PyTorch (torch) — fine-tuning modela za detekciju sarkazma
+- Hugging Face Transformers — DistilBERT model, tokenizacija i trening
+- Hugging Face Datasets — učitavanje Amazon Reviews i XSum skupova
+- Ollama / requests — komunikacija sa lokalnim LLM serverom
+- scikit-learn — metrike klasifikacije (Accuracy, Precision, Recall, F1)
+- rouge-score — metrike evaluacije sumarizacije (ROUGE-1, ROUGE-2, ROUGE-L)
+- pandas — obrada i priprema tabelarnih podataka
+- PyYAML — konfiguracija sistema (config.yaml, datasets.yaml)
+- Streamlit — grafički korisnički interfejs za testiranje pipeline-a
+- Plotly — generisanje grafika u uporednim izveštajima
+
+Pristupi u radu:
+- Fine-tuning (supervised) — DistilBERT za detekciju sarkazma
+- Prompting (zero-shot, few-shot, chain-of-thought) — Llama preko Ollama za sentiment i sumarizaciju
+
+================================================================================
+KORIŠĆENI SKUPOVI PODATAKA
+================================================================================
+
+1. iSarcasmEval
+   - Namena: detekcija sarkazma
+   - Sadržaj: tweetovi na engleskom jeziku
+   - Labele: sarcastic / non-sarcastic
+   - Podela: predefinisan train/test split (SemEval 2022)
+   - Korišćenje: trening i evaluacija fine-tuned DistilBERT modela;
+                 uporedba fine-tuning vs LLM prompting pristupa
+
+2. Amazon Reviews 2023 (kategorija All_Beauty)
+   - Namena: klasifikacija sentimenta i sumarizacija recenzija
+   - Sadržaj: tekst recenzije, numerička ocena (1–5), naslov recenzije
+   - Sentiment: izveden iz ocene (1–2 negativan, 3 neutralan, 4–5 pozitivan)
+   - Sumarizacija: naslov recenzije koristi se kao referentni sažetak
+   - Podela: train / validation / test (80/10/10)
+   - Korišćenje: evaluacija LLM modela za sentiment i sumarizaciju;
+                 poređenje pipeline varijanti (baseline, +sentiment, +sarkazam)
+
+3. XSum (BBC Extreme Summarization)
+   - Namena: sumarizacija teksta (domen vesti)
+   - Sadržaj: članak (document) i kratki sažetak (summary)
+   - Podela: zvanični train / validation / test split
+   - Korišćenje: evaluacija sumarizacije na drugoj domeni (vesti, ne recenzije);
+                 poređenje sa Amazon sumarizacijom
+
+================================================================================
+DODELA SKUPOVA PODATAKA PO ZADATKU
+================================================================================
+
+Zadatak                  | Skup podataka        | Uloga ground truth labela
+-------------------------|----------------------|----------------------------------
+Detekcija sarkazma        | iSarcasmEval         | train za učenje, test za evaluaciju
+Klasifikacija sentimenta  | Amazon Reviews 2023  | test za evaluaciju (F1, Accuracy)
+Sumarizacija (recenzije)  | Amazon Reviews 2023  | naslov recenzije = referentni sažetak
+Sumarizacija (vesti)      | XSum                 | sažetak vesti = referentni sažetak
+
+Napomena: U operativnom pipeline-u (UI, run_pipeline.py) modeli koriste isključivo
+predikcije na ulaznom tekstu. Ground truth labele iz datasetova koriste se samo
+tokom eksperimentalne evaluacije za izračunavanje metrika.
+
+================================================================================
+ARHITEKTURA SISTEMA (UKRATKO)
+================================================================================
+
+- Sarkazam: fine-tuned DistilBERT (lokalni PyTorch model)
+- Sentiment: Llama preko Ollama (prompting, sa i bez informacije o sarkazmu)
+- Sumarizacija: Llama preko Ollama (baseline, +sentiment, +sarkazam, kombinovano)
