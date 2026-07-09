@@ -22,16 +22,13 @@ def demonstrate_pipeline() -> bool:
     print("=" * 80)
 
     pipeline = NLPPipeline(config_path=str(PROJECT_ROOT / "config" / "config.yaml"))
+    pipeline.print_config_summary()
 
     if not pipeline.check_setup():
-        print("\nSetup failed. Please ensure Ollama is running.")
+        print("\nSetup failed. Please ensure Ollama is running and fine-tuned model exists.")
         return False
 
     results = pipeline.process_batch(SAMPLE_REVIEWS)
-
-    for index, result in enumerate(results, 1):
-        print(f"\n--- Review {index} ---")
-        pipeline.print_result(result)
 
     pipeline.save_results(results, "pipeline_results.json")
     return True
@@ -42,10 +39,10 @@ def demonstrate_individual_tasks() -> bool:
     if not pipeline.check_setup():
         return False
 
-    test_review = "Ovaj proizvod je čudesna kupnja! Funkcioniše savršeno."
+    test_review = "Oh great, another amazing product that broke after two days."
 
-    if pipeline.sarcasm_detector:
-        sarcasm_result = pipeline.sarcasm_detector.detect(test_review)
+    sarcasm_result = pipeline.detect_sarcasm(test_review)
+    if sarcasm_result:
         print(f"Sarcasm: {sarcasm_result['is_sarcastic']}")
 
     sentiment_result = pipeline.sentiment_classifier.classify(test_review)

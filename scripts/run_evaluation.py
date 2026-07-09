@@ -74,9 +74,12 @@ def evaluate_sarcasm(
         text = record["text"]
         reference = record["label"]
 
-        result = pipeline.sarcasm_detector.detect(
-            text, model=pipeline.config.pipeline_config.sarcasm_model
-        )
+        result = pipeline.detect_sarcasm(text)
+        if not result:
+            raise RuntimeError(
+                "Sarcasm detection is not configured. "
+                "Set sarcasm_backend in config.yaml to 'fine-tuned' or 'llm'."
+            )
         predicted = sarcasm_prediction_to_label(result["is_sarcastic"])
         correct = predicted == reference
 
@@ -210,11 +213,10 @@ def evaluate_summarization(
                 sarcasm = bool(record["sarcasm"])
             elif record.get("label") in ("sarcastic", "non-sarcastic"):
                 sarcasm = record["label"] == "sarcastic"
-            elif pipeline.sarcasm_detector:
-                sarcasm_result = pipeline.sarcasm_detector.detect(
-                    text, model=pipeline.config.pipeline_config.sarcasm_model
-                )
-                sarcasm = sarcasm_result["is_sarcastic"]
+            else:
+                sarcasm_result = pipeline.detect_sarcasm(text)
+                if sarcasm_result:
+                    sarcasm = sarcasm_result["is_sarcastic"]
 
         result = summarizer.summarize(
             text,
