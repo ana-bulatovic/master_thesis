@@ -1,12 +1,12 @@
 model:
-  name: llama3.1:latest
+  name: llama3.2:3b
   num_predict: 128
-  temperature: 0.4
+  temperature: 0.2
 pipeline:
   prompting_technique: few-shot
-  sarcasm_model: llama3.1:latest
-  sentiment_model: llama3.1:latest
-  summarization_model: llama3.1:latest
+  sarcasm_model: llama3.2:3b
+  sentiment_model: llama3.2:3b
+  summarization_model: llama3.2:3b
   use_sarcasm_detection: true
   use_sentiment_for_summarization: true
   use_sarcasm_for_summarization: true
