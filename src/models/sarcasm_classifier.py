@@ -19,11 +19,14 @@ class FinetunedSarcasmClassifier:
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(self.model_path)
-        self.id2label = {
-            int(key): value for key, value in self.model.config.id2label.items()
-        }
+        config_labels = self.model.config.label2id
+
         self.label2id = {
-            value: int(key) for key, value in self.model.config.label2id.items()
+            key: int(value) for key, value in config_labels.items()
+        }
+
+        self.id2label = {
+            int(value): key for key, value in config_labels.items()
         }
 
         if device is None:
