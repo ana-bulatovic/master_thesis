@@ -4,9 +4,9 @@ Run comparative evaluation across multiple models, techniques, and pipeline vari
 on the SAME dataset samples.
 
 Examples:
+  python scripts/run_comparison.py --task sentiment --techniques few-shot,chain-of-thought --limit 20
   python scripts/run_comparison.py --task summarization --source amazon --limit 10
-  python scripts/run_comparison.py --task summarization --models llama3.1,mistral --limit 20
-  python scripts/run_comparison.py --task all --models tinyllama,llama3.1 --techniques few-shot,zero-shot --limit 5
+  python scripts/run_comparison.py --task all --models llama3.2:3b --techniques few-shot,chain-of-thought --limit 5
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ VARIANT_LABELS = {
     "with_sentiment": "+sentiment",
     "with_sarcasm": "+sarcasm",
     "with_sentiment_and_sarcasm": "+sentiment+sarcasm",
-    "baseline": "baseline (bez sarkazma)",
-    "with_sarcasm_sentiment": "+sarkazam u sentimentu",
+    "sentiment_baseline": "sentiment BEZ detekcije sarkazma",
+    "sentiment_with_sarcasm_detection": "sentiment SA detekcijom sarkazma",
 }
 
 
@@ -47,6 +47,12 @@ def friendly_variant(variant: str | None) -> str:
     if not variant:
         return "-"
     return VARIANT_LABELS.get(variant, variant)
+
+
+def _format_metric(value: float | None) -> str:
+    if value is None:
+        return "-"
+    return f"{value:.4f}"
 
 
 # Reuse evaluation logic from run_evaluation.py
@@ -91,10 +97,7 @@ def experiment_row_from_task_result(
         "technique": technique,
         "task": task,
         "source": task_result.get("source"),
-        "variant": friendly_variant(
-            "with_sarcasm_sentiment" if task_result.get("variant") == "with_sarcasm" and task == "sentiment"
-            else task_result.get("variant")
-        ),
+        "variant": friendly_variant(task_result.get("variant")),
     }
 
     if task in ("sarcasm", "sentiment"):
@@ -128,8 +131,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--task",
         choices=["sarcasm", "sentiment", "summarization", "all"],
-        default="summarization",
-        help="Which task(s) to compare",
+        default="sentiment",
+        help="Which task(s) to compare (sentiment: with vs without sarcasm detection)",
     )
     parser.add_argument(
         "--source",
@@ -268,8 +271,12 @@ def main() -> int:
 
                 elif task == "sentiment":
                     for use_sarcasm_flag in (False, True):
-                        variant_name = "with_sarcasm" if use_sarcasm_flag else "baseline"
-                        logger.info("    Variant: %s", variant_name)
+                        variant_name = (
+                            "sentiment_with_sarcasm_detection"
+                            if use_sarcasm_flag
+                            else "sentiment_baseline"
+                        )
+                        logger.info("    Variant: %s", friendly_variant(variant_name))
                         task_result = evaluate_sentiment(
                             pipeline, records, logger, use_sarcasm=use_sarcasm_flag
                         )
@@ -320,7 +327,26 @@ def main() -> int:
     write_csv(flat_rows, output_csv)
 
     if not args.skip_html:
-        write_html_report(flat_rows, output_html)
+        write_html_report(
+            flat_rows,
+            output_html,
+            title="Uporedna analiza pipeline-a",
+        )
+
+    sentiment_rows = [row for row in flat_rows if row.get("task") == "sentiment"]
+    if sentiment_rows:
+        logger.info("")
+        logger.info("SENTIMENT: sa vs bez detekcije sarkazma")
+        logger.info("-" * 70)
+        for row in sentiment_rows:
+            logger.info(
+                "  %s | %s | %s | F1=%s | Acc=%s",
+                row.get("technique"),
+                row.get("variant"),
+                row.get("model"),
+                _format_metric(row.get("f1")),
+                _format_metric(row.get("accuracy")),
+            )
 
     logger.info("")
     logger.info("=" * 70)

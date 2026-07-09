@@ -13,6 +13,8 @@ VARIANT_LABELS = {
     "with_sarcasm": "+sarcasm",
     "with_sentiment_and_sarcasm": "+sentiment+sarcasm",
     "baseline": "baseline",
+    "sentiment_baseline": "sentiment BEZ detekcije sarkazma",
+    "sentiment_with_sarcasm_detection": "sentiment SA detekcijom sarkazma",
 }
 
 

@@ -121,7 +121,7 @@ def evaluate_sentiment(
     references: List[str] = []
     samples: List[Dict[str, Any]] = []
 
-    variant = "with_sarcasm" if use_sarcasm else "baseline"
+    variant = "sentiment_with_sarcasm_detection" if use_sarcasm else "sentiment_baseline"
     logger.info(
         "Running sentiment classification (%s) on %d samples...",
         variant,
@@ -132,14 +132,18 @@ def evaluate_sentiment(
         text = record["text"]
         reference = record["label"]
         sarcasm = None
+        sarcasm_result = None
 
         if use_sarcasm:
             sarcasm_result = pipeline.detect_sarcasm(text)
             sarcasm = sarcasm_result["is_sarcastic"] if sarcasm_result else None
             result = pipeline.classify_sentiment(text, sarcasm_result)
         else:
-            sarcasm = None
-            result = pipeline.classify_sentiment(text, None)
+            result = pipeline.sentiment_classifier.classify(
+                text,
+                model=pipeline.config.pipeline_config.sentiment_model,
+                sarcasm_aware=False,
+            )
         predicted = result["sentiment"]
         correct = predicted == reference
 
@@ -152,7 +156,10 @@ def evaluate_sentiment(
                 "reference": reference,
                 "predicted": predicted,
                 "correct": correct,
-                "sarcasm_used": sarcasm if use_sarcasm else None,
+                "sarcasm_detected": sarcasm if use_sarcasm else None,
+                "sarcasm_confidence": (
+                    sarcasm_result.get("confidence") if sarcasm_result else None
+                ),
                 "model_response": result.get("response", ""),
             }
         )
