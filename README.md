@@ -45,9 +45,11 @@ python scripts/prepare_datasets.py --dataset all
 # Evaluacija na pravim podacima (počni sa malim limitom)
 python scripts/run_evaluation.py --task all --limit 5
 
-# Demo pipeline na ugrađenim primerima
-python scripts/main.py
-python scripts/run_ui.py
+# Agregirana uporedna tabela iz postojećih evaluacija
+python scripts/compare_results.py
+
+# Sve odjednom: više modela × varijante pipeline-a na ISTIM podacima
+python scripts/run_comparison.py --task summarization --source amazon --limit 10 --models tinyllama:latest,llama3.1
 ```
 
 Detaljan vodič za analizu: `docs/ANALIZA.md`  
