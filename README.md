@@ -48,8 +48,11 @@ python scripts/run_evaluation.py --task all --limit 5
 # Agregirana uporedna tabela iz postojećih evaluacija
 python scripts/compare_results.py
 
-# Sve odjednom: više modela × varijante pipeline-a na ISTIM podacima
-python scripts/run_comparison.py --task summarization --source amazon --limit 10 --models tinyllama:latest,llama3.1
+# Fine-tuning (DistilBERT na iSarcasmEval)
+pip install accelerate evaluate
+python scripts/train_sarcasm.py
+python scripts/evaluate_finetuned_sarcasm.py
+python scripts/compare_sarcasm_approaches.py --llm-model llama3.1:latest --limit 50
 ```
 
 Detaljan vodič za analizu: `docs/ANALIZA.md`  

@@ -40,6 +40,10 @@ results/**
 .cache/
 huggingface/
 
+# Fine-tuned model weights
+models/**
+!models/.gitkeep
+
 # OS files
 .DS_Store
 thumbs.db
