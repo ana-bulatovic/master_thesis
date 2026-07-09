@@ -135,15 +135,11 @@ def evaluate_sentiment(
 
         if use_sarcasm:
             sarcasm_result = pipeline.detect_sarcasm(text)
-            if sarcasm_result:
-                sarcasm = sarcasm_result["is_sarcastic"]
-
-        result = pipeline.sentiment_classifier.classify(
-            text,
-            model=pipeline.config.pipeline_config.sentiment_model,
-            sarcasm=sarcasm,
-            sarcasm_aware=use_sarcasm and sarcasm is not None,
-        )
+            sarcasm = sarcasm_result["is_sarcastic"] if sarcasm_result else None
+            result = pipeline.classify_sentiment(text, sarcasm_result)
+        else:
+            sarcasm = None
+            result = pipeline.classify_sentiment(text, None)
         predicted = result["sentiment"]
         correct = predicted == reference
 
@@ -215,36 +211,22 @@ def evaluate_summarization(
         reference = record["summary"]
         sentiment = None
         sarcasm = None
+        sarcasm_result = None
+
+        needs_sarcasm = use_sarcasm or (
+            use_sentiment and pipeline.config.pipeline_config.use_sarcasm_for_sentiment
+        )
+        if needs_sarcasm:
+            sarcasm_result = pipeline.detect_sarcasm(text)
+            sarcasm = sarcasm_result["is_sarcastic"] if sarcasm_result else None
 
         if use_sentiment:
-            sentiment = record.get("label")
-            if not sentiment or sentiment in ("sarcastic", "non-sarcastic"):
-                if use_sarcasm:
-                    sarcasm_result = pipeline.detect_sarcasm(text)
-                    sarcasm_for_sentiment = (
-                        sarcasm_result["is_sarcastic"] if sarcasm_result else None
-                    )
-                    sentiment_result = pipeline.sentiment_classifier.classify(
-                        text,
-                        model=pipeline.config.pipeline_config.sentiment_model,
-                        sarcasm=sarcasm_for_sentiment,
-                        sarcasm_aware=sarcasm_for_sentiment is not None,
-                    )
-                else:
-                    sentiment_result = pipeline.sentiment_classifier.classify(
-                        text, model=pipeline.config.pipeline_config.sentiment_model
-                    )
-                sentiment = sentiment_result["sentiment"]
+            sentiment_result = pipeline.classify_sentiment(text, sarcasm_result)
+            sentiment = sentiment_result["sentiment"]
 
-        if use_sarcasm:
-            if "sarcasm" in record and record["sarcasm"] is not None:
-                sarcasm = bool(record["sarcasm"])
-            elif record.get("label") in ("sarcastic", "non-sarcastic"):
-                sarcasm = record["label"] == "sarcastic"
-            else:
-                sarcasm_result = pipeline.detect_sarcasm(text)
-                if sarcasm_result:
-                    sarcasm = sarcasm_result["is_sarcastic"]
+        if use_sarcasm and sarcasm is None:
+            sarcasm_result = pipeline.detect_sarcasm(text)
+            sarcasm = sarcasm_result["is_sarcastic"] if sarcasm_result else None
 
         result = summarizer.summarize(
             text,

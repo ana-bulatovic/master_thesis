@@ -11,8 +11,8 @@ class SentimentClassifier:
         self.prompting_technique = prompting_technique
         self.sentiment_labels = ["positive", "negative", "neutral"]
 
-    def _build_sarcasm_hint(self, sarcasm: Optional[bool]) -> str:
-        if sarcasm is None:
+    def _build_sarcasm_hint(self, sarcasm: Optional[bool], sarcasm_aware: bool = False) -> str:
+        if not sarcasm_aware or sarcasm is None:
             return ""
 
         if sarcasm:
@@ -21,10 +21,11 @@ class SentimentClassifier:
                 "Classify the intended/true sentiment.\n"
             )
 
-        return "The review is not sarcastic.\n"
+        # Detektor kaže da nema sarkazma — ne menjamo prompt, samo nastavljamo lanac.
+        return ""
 
-    def _get_zero_shot_prompt(self, text: str, sarcasm: Optional[bool] = None) -> str:
-        sarcasm_hint = self._build_sarcasm_hint(sarcasm)
+    def _get_zero_shot_prompt(self, text: str, sarcasm: Optional[bool] = None, sarcasm_aware: bool = False) -> str:
+        sarcasm_hint = self._build_sarcasm_hint(sarcasm, sarcasm_aware)
 
         return f"""Analyze the sentiment of the following review.
 
@@ -33,7 +34,7 @@ class SentimentClassifier:
 Classify the sentiment as one of: positive, negative, neutral.
 Answer with only the sentiment label."""
 
-    def _get_few_shot_prompt(self, text: str, sarcasm: Optional[bool] = None) -> str:
+    def _get_few_shot_prompt(self, text: str, sarcasm: Optional[bool] = None, sarcasm_aware: bool = False) -> str:
         examples = [
             ("This product is amazing and works perfectly!", "positive"),
             ("I'm very happy with this purchase, excellent quality.", "positive"),
@@ -47,21 +48,22 @@ Answer with only the sentiment label."""
             ),
         ]
 
-        sarcasm_hint = self._build_sarcasm_hint(sarcasm)
+        sarcasm_hint = self._build_sarcasm_hint(sarcasm, sarcasm_aware)
 
         prompt = (
             "Classify the sentiment of reviews as: positive, negative, or neutral.\n"
-            "For sarcastic reviews, classify the intended sentiment, not the literal words.\n\n"
-            f"{sarcasm_hint}Examples:\n"
         )
+        if sarcasm_aware:
+            prompt += "For sarcastic reviews, classify the intended sentiment, not the literal words.\n"
+        prompt += f"\n{sarcasm_hint}Examples:\n"
         for example_text, sentiment in examples:
             prompt += f"Review: {example_text}\nSentiment: {sentiment}\n\n"
 
         prompt += f"Now classify this review:\n\nReview: {text}\n\nSentiment:"
         return prompt
 
-    def _get_chain_of_thought_prompt(self, text: str, sarcasm: Optional[bool] = None) -> str:
-        sarcasm_hint = self._build_sarcasm_hint(sarcasm)
+    def _get_chain_of_thought_prompt(self, text: str, sarcasm: Optional[bool] = None, sarcasm_aware: bool = False) -> str:
+        sarcasm_hint = self._build_sarcasm_hint(sarcasm, sarcasm_aware)
 
         return f"""Analyze the sentiment of this review step by step.
 
@@ -84,11 +86,11 @@ Final sentiment:"""
         sarcasm_hint = sarcasm if sarcasm_aware else None
 
         if self.prompting_technique == "zero-shot":
-            prompt = self._get_zero_shot_prompt(text, sarcasm_hint)
+            prompt = self._get_zero_shot_prompt(text, sarcasm_hint, sarcasm_aware)
         elif self.prompting_technique == "chain-of-thought":
-            prompt = self._get_chain_of_thought_prompt(text, sarcasm_hint)
+            prompt = self._get_chain_of_thought_prompt(text, sarcasm_hint, sarcasm_aware)
         else:
-            prompt = self._get_few_shot_prompt(text, sarcasm_hint)
+            prompt = self._get_few_shot_prompt(text, sarcasm_hint, sarcasm_aware)
 
         response = self.client.generate(prompt, model)
         response_lower = response.lower().strip()

@@ -172,6 +172,23 @@ class NLPPipeline:
 
         return ok
 
+    def classify_sentiment(self, review: str, sarcasm_result: Optional[Dict] = None) -> Dict:
+        """Klasifikacija sentimenta; koristi izlaz detektora sarkazma kada je uključeno u konfiguraciji."""
+        pipeline_config = self.config.pipeline_config
+
+        if pipeline_config.use_sarcasm_for_sentiment and sarcasm_result is not None:
+            return self.sentiment_classifier.classify(
+                review,
+                model=pipeline_config.sentiment_model,
+                sarcasm=sarcasm_result["is_sarcastic"],
+                sarcasm_aware=True,
+            )
+
+        return self.sentiment_classifier.classify(
+            review,
+            model=pipeline_config.sentiment_model,
+        )
+
     def process_review(self, review: str, verbose: bool = True) -> Dict:
         pipeline_config = self.config.pipeline_config
         result = {
@@ -187,14 +204,14 @@ class NLPPipeline:
             print(f"INPUT: {preview}")
 
         sarcasm_result = None
-        if self._uses_sarcasm():
+        if self._needs_sarcasm_detector():
             if verbose:
                 backend = (
                     "fine-tuned DistilBERT"
                     if pipeline_config.sarcasm_backend == "fine-tuned"
                     else f"LLM ({pipeline_config.sarcasm_model})"
                 )
-                print(f"  [1/4] Sarcasm detection ({backend})...")
+                print(f"  [1/3] Sarcasm detection ({backend})...")
             sarcasm_result = self._detect_sarcasm(review)
             if verbose and sarcasm_result:
                 label = "SARCASTIC" if sarcasm_result["is_sarcastic"] else "NON-SARCASTIC"
@@ -205,39 +222,21 @@ class NLPPipeline:
         result["sarcasm_detection"] = sarcasm_result
 
         if verbose:
-            print(f"  [2/4] Sentiment classification (LLM: {pipeline_config.sentiment_model})...")
-            print("        -> baseline (without sarcasm hint)...")
-        sentiment_result = self.sentiment_classifier.classify(
-            review, model=pipeline_config.sentiment_model, sarcasm_aware=False
-        )
+            print(f"  [2/3] Sentiment classification (LLM: {pipeline_config.sentiment_model})...")
+            if pipeline_config.use_sarcasm_for_sentiment and sarcasm_result is not None:
+                print("        -> using sarcasm detector output as input...")
+            else:
+                print("        -> without sarcasm context...")
+        sentiment_result = self.classify_sentiment(review, sarcasm_result)
         result["sentiment_classification"] = sentiment_result
         if verbose:
-            print(f"           {sentiment_result['sentiment'].upper()}")
-
-        sentiment_sarcasm_aware_result = None
-        if pipeline_config.use_sarcasm_for_sentiment and sarcasm_result is not None:
-            if verbose:
-                print("        -> sarcasm-aware sentiment...")
-            sentiment_sarcasm_aware_result = self.sentiment_classifier.classify(
-                review,
-                model=pipeline_config.sentiment_model,
-                sarcasm=sarcasm_result["is_sarcastic"],
-                sarcasm_aware=True,
-            )
-            if verbose:
-                print(f"           {sentiment_sarcasm_aware_result['sentiment'].upper()}")
-        result["sentiment_classification_sarcasm_aware"] = sentiment_sarcasm_aware_result
+            print(f"        -> {sentiment_result['sentiment'].upper()}")
 
         sarcasm_flag = sarcasm_result["is_sarcastic"] if sarcasm_result else None
         sentiment_label = sentiment_result["sentiment"]
-        sentiment_sarcasm_aware_label = (
-            sentiment_sarcasm_aware_result["sentiment"]
-            if sentiment_sarcasm_aware_result
-            else sentiment_label
-        )
 
         if verbose:
-            print(f"  [3/4] Summarization (LLM: {pipeline_config.summarization_model})...")
+            print(f"  [3/3] Summarization (LLM: {pipeline_config.summarization_model})...")
 
         result["summarization_without_sentiment"] = self.summarizer_without_sentiment.summarize(
             review,
@@ -276,18 +275,18 @@ class NLPPipeline:
             result["summarization_with_sentiment_and_sarcasm"] = (
                 self.summarizer_with_sentiment_and_sarcasm.summarize(
                     review,
-                    sentiment=sentiment_sarcasm_aware_label,
+                    sentiment=sentiment_label,
                     sarcasm=sarcasm_flag,
                     model=pipeline_config.summarization_model,
                 )
             )
             if verbose:
-                print("        -> +sentiment+sarcasm done (sarcasm-aware sentiment)")
+                print("        -> +sentiment+sarcasm done")
         else:
             result["summarization_with_sentiment_and_sarcasm"] = None
 
         if verbose:
-            print("  [4/4] Done.")
+            print("  Done.")
 
         if verbose:
             self._print_result_summary(result)
@@ -330,11 +329,11 @@ class NLPPipeline:
             print(line)
 
         sentiment = result["sentiment_classification"]["sentiment"].upper()
-        print(f"    Sentiment (baseline):        {sentiment}")
-
-        if result.get("sentiment_classification_sarcasm_aware"):
-            sarcasm_sentiment = result["sentiment_classification_sarcasm_aware"]["sentiment"].upper()
-            print(f"    Sentiment (sarcasm-aware):  {sarcasm_sentiment}")
+        sarcasm_used = result["sentiment_classification"].get("sarcasm_aware")
+        if sarcasm_used:
+            print(f"    Sentiment (sarcasm-aware):  {sentiment}")
+        else:
+            print(f"    Sentiment:                 {sentiment}")
         print(f"    Summary (baseline):          {result['summarization_without_sentiment']['summary']}")
 
         if result.get("summarization_with_sentiment"):

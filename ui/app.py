@@ -544,16 +544,12 @@ class StreamlitApp:
             sentiment = result['sentiment_classification']['sentiment'].upper()
             color_map = {'POSITIVE': 'green', 'NEGATIVE': 'red', 'NEUTRAL': 'orange'}
             color = color_map.get(sentiment, 'blue')
-            st.markdown(f"**Sentiment (baseline):** <span style='color:{color};font-weight:bold'>{sentiment}</span>", unsafe_allow_html=True)
-
-            if result.get('sentiment_classification_sarcasm_aware'):
-                sa_sentiment = result['sentiment_classification_sarcasm_aware']['sentiment'].upper()
-                sa_color = color_map.get(sa_sentiment, 'blue')
-                st.markdown(
-                    f"**Sentiment (sarcasm-aware):** "
-                    f"<span style='color:{sa_color};font-weight:bold'>{sa_sentiment}</span>",
-                    unsafe_allow_html=True,
-                )
+            sentiment_label = "Sentiment (sarcasm-aware)" if result['sentiment_classification'].get('sarcasm_aware') else "Sentiment"
+            st.markdown(
+                f"**{sentiment_label}:** "
+                f"<span style='color:{color};font-weight:bold'>{sentiment}</span>",
+                unsafe_allow_html=True,
+            )
 
         with col2:
             # Summaries
