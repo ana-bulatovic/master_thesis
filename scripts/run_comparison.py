@@ -33,6 +33,22 @@ from evaluation.comparison_report import (
 )
 from pipeline.pipeline import NLPPipeline
 
+VARIANT_LABELS = {
+    "without_sentiment": "baseline",
+    "with_sentiment": "+sentiment",
+    "with_sarcasm": "+sarcasm",
+    "with_sentiment_and_sarcasm": "+sentiment+sarcasm",
+    "baseline": "baseline (bez sarkazma)",
+    "with_sarcasm_sentiment": "+sarkazam u sentimentu",
+}
+
+
+def friendly_variant(variant: str | None) -> str:
+    if not variant:
+        return "-"
+    return VARIANT_LABELS.get(variant, variant)
+
+
 # Reuse evaluation logic from run_evaluation.py
 from run_evaluation import (  # noqa: E402
     LOG_DIR,
@@ -75,7 +91,10 @@ def experiment_row_from_task_result(
         "technique": technique,
         "task": task,
         "source": task_result.get("source"),
-        "variant": friendly_variant(task_result.get("variant")),
+        "variant": friendly_variant(
+            "with_sarcasm_sentiment" if task_result.get("variant") == "with_sarcasm" and task == "sentiment"
+            else task_result.get("variant")
+        ),
     }
 
     if task in ("sarcasm", "sentiment"):
