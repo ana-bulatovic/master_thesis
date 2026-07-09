@@ -1,0 +1,305 @@
+Предлог теме мастер рада
+
+Назив теме
+Примена великих језичких модела за апстрактивну сумаризацију текста и детекцију фактичких халуцинација у генерисаним сажецима
+
+Опис проблема
+Предложени мастер рад бавио би се применом великих језичких модела (LLM) у области апстрактивне сумаризације текста, са посебним фокусом на проблем фактичких халуцинација — ситуација у којој модел у генерисаном сажетку уноси информације које нису присутне у изворном тексту или које извора директно противрече.
+У ери широке примене генеративних модела, сумаризација више није само задатак скупљања садржаја, већ и задатак веродостојности (faithfulness). Нетачни сажеци могу довести до погрешних одлука у медијима, правосудству, медицини и пословној аналитици. Због тога је истраживање начина на које различите prompting стратегије утичу на квалитет и веродостојност сумаризације од великог научног и практичног значаја.
+Основна идеја рада јесте формирање двостепеног pipeline система:
+1.	генерисање апстрактивног сажетка изворног текста помоћу LLM-а,
+2.	детекција и анализа фактичких халуцинација у генерисаном сажетку.
+Рад би испитивао да ли различите prompting технике (zero-shot, few-shot, chain-of-thought) и различити модели (Llama, Mistral, Qwen) производе сажетке различитог квалитета и различитог степена веродостојности. Посебан акценат био би на упоређењу стандардног приступа сумаризације и приступа усмереног на смањење халуцинација (faithfulness-aware prompting), у коме модел прво издваја чињенице из извора, а затим на основу њих генерише сажетак.
+Циљ рада је да се емпиријски утврди које комбинације модела и prompting стратегија дају најквалитетније сажетке, али и да се анализира које стратегије најефикасније смањују појаву фактичких халуцинација. На тај начин рад доприноси разумевању ограничења локално покретаних LLM модела и пружа препоруке за поузданију аутоматску сумаризацију текста.
+
+Скупови података
+Као главни скупови података користили би се јавно доступни dataset-ovi за сумаризацију и евалуацију веродостојности сажетака:
+
+1. CNN/DailyMail
+•	Намена: генерисање сажетака из новинских чланака.
+•	Структура: парови (чланак, референтни сажетак / наслов).
+•	Величина: ~300.000 примера (за експерименте довољан подскуп од 500–2.000 примера).
+•	Предност: стандардни benchmark за сумаризацију; референтни сажеци су људски написани.
+•	Линк: https://huggingface.co/datasets/abisee/cnn_dailymail
+
+2. XSum (Extreme Summarization)
+•	Намена: генерисање веома кратких, апстрактивних сажетака.
+•	Структура: BBC чланак + једноречени референтни сажетак.
+•	Величина: ~225.000 примера.
+•	Предност: принудљиво апстрактивна сумаризација; добар за тестирање тенденције модела да „измишља“ чињенице.
+•	Линк: https://huggingface.co/datasets/EdinburghNLP/xsum
+
+3. SummEval
+•	Намена: евалуација квалитета и веродостојности машински генерисаних сажетака.
+•	Структура: изворни текст, више генерисаних сажетака, људске оцене (кохерентност, веродостојност, релевантност).
+•	Величина: 100 изворних докумената, 1.600 сажетака, 2.500 анотација.
+•	Предност: садржи експлицитне људске оцене faithfulness-а — кључно за валидацију LLM приступа.
+•	Линк: https://github.com/Yale-LILY/SummEval
+
+4. FRANK (Factuality Evaluation Benchmark)
+•	Намена: детекција фактичких грешака у сажецима.
+•	Структура: сажетак + изворни текст + ознака типа грешке (intrinsic / extrinsic hallucination).
+•	Предност: директно мери фактичке халуцинације, не само преклапање са референтним сажетком.
+•	Линк: https://github.com/artidoro/frank
+
+5. QAGS (Question Answering and Generation for Summarization)
+•	Намена: аутоматска процена веродостојности сажетака.
+•	Принцип: генеришу се питања на основу сажетка, а одговори се траже у изворном тексту; неслагање указује на халуцинацију.
+•	Предност: погодан за аутоматску детекцију халуцинација у pipeline-у без ручне анотације сваког примера.
+•	Линк: https://github.com/W4ngatang/qags
+
+Стратегија коришћења dataset-ова:
+•	CNN/DailyMail и XSum — за генерисање сажетака и поређење prompting стратегија.
+•	SummEval и FRANK — за евалуацију faithfulness-а и анализу типова халуцинација.
+•	QAGS — као аутоматски метод детекције халуцинација унутар имплементираног pipeline-а.
+
+Модели
+У раду би се користили отворени велики језички модели доступни преко платформе Ollama, као што су:
+•	Meta Llama 3.1 (8B),
+•	Alibaba Cloud Qwen 2.5 (7B),
+•	Mistral AI Mistral (7B).
+
+Модели би били тестирани и упоређивани у задацима сумаризације и детекције халуцинација. За упоредну анализу, у рад би било укључено и fine-tuned решење засновано на трансформер архитектури (нпр. BART или T5) као baseline, ради утврђивања да ли LLM prompting приступи дају конкурентне или боље резултате у погледу веродостојности сажетака.
+
+Задаци који се решавају
+Рад би обухватао два повезана NLP задатка:
+
+1. Апстрактивна сумаризација текста
+Генерисање кратког сажетка који апстрахује садржај изворног текста, а не само издваја реченице (extractive приступ). Сажетак треба да буде кохерентан, релевантан и фактички веродостојан.
+
+2. Детекција фактичких халуцинација у сажетку
+Идентификација информација у генерисаном сажетку које:
+•	нису подржане изворним текстом (extrinsic hallucination),
+•	противрече изворном тексту (intrinsic hallucination / contradiction).
+
+Посебан фокус био би на анализи које prompting стратегије најефикасније смањују појаву ових грешака.
+
+Експериментални део
+У оквиру рада имплементирале би се различите варијанте pipeline система:
+
+Варијанта 1 — Стандардна сумаризација
+Изворни текст → LLM → сажетак
+
+Варијанта 2 — Chain-of-Thought сумаризација
+Изворни текст → LLM (CoT: прво издвоји кључне чињенице, затим сумирај) → сажетак
+
+Варијанта 3 — Faithfulness-aware сумаризација
+Изворни текст → LLM (few-shot примери веродостојних сажетака) → сажетак → аутоматска провера халуцинација (QAGS) → регенерација ако је детектована грешка
+
+Варијанта 4 — Сумаризација + пост-хок детекција
+Изворни текст → LLM → сажетак → LLM као детектор халуцинација (zero-shot / few-shot класификација: „Да ли ова реченица у сажетку подржана извором?“)
+
+За сваку варијанту тестирале би се три prompting технике:
+•	zero-shot prompting,
+•	few-shot prompting,
+•	chain-of-thought prompting.
+
+На тај начин било би могуће анализирати:
+•	који модел даје најбоље сажетке по ROUGE и BERTScore метрикама,
+•	који модел и која prompting стратегија производи најмање халуцинација,
+•	да ли постоји компромис између квалитета сажетка (fluncy / relevance) и веродостојности (faithfulness),
+•	који типови халуцинација су најчешћи (додате чињенице, погрешне бројке, погрешни субјекти).
+
+Евалуација
+
+Метрике за сумаризацију (квалитет сажетка):
+•	ROUGE-1, ROUGE-2, ROUGE-L — преклапање n-gramа са референтним сажетком,
+•	BERTScore — семантичка сличност између генерисаног и референтног сажетка.
+
+Метрике за веродостојност (faithfulness / детекција халуцинација):
+•	QAGS score — аутоматска процена веродостојности путем питања и одговора,
+•	FRANK метрике — проценат фактички нетачних сажетака по типу грешке,
+•	Entity Overlap — упоређење именованих ентитета у сажетку и извору,
+•	NLI-based faithfulness — провера да ли сажетак логички произаилази из извора (entailment / contradiction).
+
+Метрике за класификацију халуцинација (ако се третира као бинарни задатак):
+•	Accuracy,
+•	Precision,
+•	Recall,
+•	F1 score.
+
+Поред квантитативне евалуације, рад би обухватио и квалитативну анализу резултата:
+•	ручна процена подскупа од 50–100 сажетака (Likert скала 1–5: релевантност, кохерентност, веродостојност),
+•	error analysis са конкретним примерима халуцинација по моделу и prompting стратегији,
+•	поређење аутоматских метрика са људском проценом веродостојности.
+
+Очекивани допринос рада
+•	Емпиријска анализа утицаја prompting стратегија на веродостојност LLM сумаризације.
+•	Имплементација и поређење pipeline варијанти за сумаризацију са аутоматском детекцијом халуцинација.
+•	Препоруке за избор модела и prompting приступа у сценаријима где је фактичка тачност критична.
+•	Допринос разумевању компромиса између квалитета и веродостојности у генеративној сумаризацији.
+
+
+================================================================================
+ЛИТЕРАТУРА — СПЕЦИФИЧНА ЗА ТЕМУ (сумаризација и халуцинације)
+================================================================================
+
+Сумаризација текста — основе и евалуација
+--------------------------------------------------------------------------------
+1. Nenkova, A., & McKeown, K. (2011). Automatic Summarization. Foundations and Trends in Information Retrieval.
+   — Стандардни преглед апстрактивне и екстрактивне сумаризације; објашњава ROUGE метрике.
+   https://www.nowpublishers.com/article/Details/INR-016
+
+2. Kryściński, W., et al. (2019). Neural Text Summarization: A Critical Evaluation.
+   — Критичка анализа неуронске сумаризације; показује зашто ROUGE није довољан.
+   https://arxiv.org/abs/1908.08961
+
+3. Hermann, K., et al. (2015). Teaching Machines to Read and Comprehend.
+   — Уводи CNN/DailyMail dataset за сумаризацију.
+   https://arxiv.org/abs/1506.03340
+
+4. Narayan, S., et al. (2018). Don't Give Me the Details, Just the Summary!
+   — Уводи XSum dataset; анализа апстрактивне сумаризације.
+   https://arxiv.org/abs/1808.08745
+
+Халуцинације у сумаризацији и faithfulness
+--------------------------------------------------------------------------------
+5. Maynez, J., et al. (2020). On Faithfulness and Factuality in Abstractive Summarization.
+   — Кључни рад о faithfulness проблему; дефинише intrinsic и extrinsic халуцинације.
+   https://arxiv.org/abs/2005.00661
+
+6. Pagnoni, A., et al. (2021). Understanding Factuality in Abstractive Summarization with FRANK.
+   — FRANK benchmark; типологија фактичких грешака у сажецима.
+   https://arxiv.org/abs/2104.13346
+
+7. Wang, A., et al. (2020). Asking and Answering Questions to Evaluate the Factual Consistency of Summaries (QAGS).
+   — QAGS метода за аутоматску детекцију халуцинација.
+   https://arxiv.org/abs/2004.04228
+
+8. Kryściński, W., et al. (2020). Evaluating the Factual Consistency of Abstractive Text Summarization.
+   — FactCC модел за детекцију фактичких неконзистентности.
+   https://arxiv.org/abs/1910.12840
+
+9. Fabbri, A. R., et al. (2021). SummEval: Re-evaluating Summarization Evaluation.
+   — SummEval benchmark са људским оценама faithfulness-а.
+   https://arxiv.org/abs/2007.12626
+
+10. Durmus, E., et al. (2020). FEQA: A Question Answering Evaluation Framework for Faithfulness Assessment.
+    — Question-answering приступ евалуацији веродостојности.
+    https://arxiv.org/abs/2005.03754
+
+11. Cao, M., et al. (2022). Hallucinated but Factual! Inspecting the Factuality of Hallucinations in Abstractive Summarization.
+    — Нијансирана анализа: не свака „халуцинација“ је истински нетачна.
+    https://arxiv.org/abs/2109.09784
+
+12. Zhang, T., et al. (2023). Benchmarking Large Language Models for News Summarization.
+    — Поређење LLM-ова за сумаризацију вести; директно релевантно за овај рад.
+    https://arxiv.org/abs/2301.13848
+
+
+================================================================================
+ЛИТЕРАТУРА — NLP ОСНОВЕ И PROMPTING
+================================================================================
+
+Опште NLP основе
+--------------------------------------------------------------------------------
+13. Jurafsky, D., & Martin, J. H. Speech and Language Processing (3. издање).
+    — Бесплатан уџбеник; поглавља о класификацији, sequence-to-sequence, сумаризацији.
+    https://web.stanford.edu/~jurafsky/slp3/
+
+14. Manning, C. D., & Schütze, H. Foundations of Statistical Natural Language Processing.
+    — Класична основа за разумевање NLP метода и евалуације.
+
+15. Goldberg, Y. (2017). Neural Network Methods for Natural Language Processing.
+    — Преглед неуронских приступа у NLP-у.
+
+Prompting и велики језички модели
+--------------------------------------------------------------------------------
+16. Brown, T., et al. (2020). Language Models are Few-Shot Learners (GPT-3).
+    — Основни рад о few-shot prompting-у.
+    https://arxiv.org/abs/2005.14165
+
+17. Wei, J., et al. (2022). Chain-of-Thought Prompting Elicits Reasoning in Large Language Models.
+    — Chain-of-thought prompting; релевантно за CoT варијанту сумаризације.
+    https://arxiv.org/abs/2201.11903
+
+18. Liu, P., et al. (2023). Pre-train, Prompt, and Predict: A Systematic Survey of Prompting Methods in NLP.
+    — Систематски преглед свих prompting техника.
+    https://arxiv.org/abs/2107.13586
+
+19. Kojima, T., et al. (2022). Large Language Models are Zero-Shot Reasoners.
+    — Zero-shot CoT („Let's think step by step“).
+    https://arxiv.org/abs/2205.11916
+
+20. Zhao, W., et al. (2023). A Survey of Large Language Models.
+    — Општи преглед LLM архитектура, способности и ограничења.
+    https://arxiv.org/abs/2303.18223
+
+21. Chang, Y., et al. (2024). A Survey on Evaluation of Large Language Models.
+    — Преглед метода евалуације LLM-ова, укључујући faithfulness.
+    https://arxiv.org/abs/2307.03109
+
+22. Gao, L., et al. (2023). A Survey of Hallucination in Natural Language Generation.
+    — Комплетан преглед халуцинација у генеративном NLP-у.
+    https://arxiv.org/abs/2202.03629
+
+
+================================================================================
+ЛИТЕРАТУРА — МЕТРИКЕ И ЕВАЛУАЦИЈА
+================================================================================
+
+Метрике за сумаризацију
+--------------------------------------------------------------------------------
+23. Lin, C.-Y. (2004). ROUGE: A Package for Automatic Evaluation of Summaries.
+    — Оригинални ROUGE рад; обавезно за поглавље о метрикама.
+    https://aclanthology.org/W04-1013/
+
+24. Zhang, T., et al. (2020). BERTScore: Evaluating Text Generation with BERT.
+    — BERTScore метрика за семантичку евалуацију.
+    https://arxiv.org/abs/1904.09675
+
+25. Sellam, T., et al. (2020). BLEURT: Learning Robust Metrics for Text Generation.
+    — Научно обучена метрика за евалуацију генерације.
+    https://arxiv.org/abs/2004.04696
+
+Метрике за класификацију
+--------------------------------------------------------------------------------
+26. Sokolova, M., & Lapalme, G. (2009). A Systematic Analysis of Performance Measures for Classification Tasks.
+    — Прецизно објашњење Accuracy, Precision, Recall, F1.
+    https://doi.org/10.1016/j.ipm.2009.03.002
+
+27. Powers, D. M. W. (2011). Evaluation: From Precision, Recall and F-Measure to ROC, Informedness, Markedness and Correlation.
+    — Дубља анализа класификационих метрика.
+
+Метрике за faithfulness и NLI
+--------------------------------------------------------------------------------
+28. Bowman, S. R., et al. (2015). A Large Annotated Corpus for Learning Natural Language Inference.
+    — SNLI корпус; основа NLI-based faithfulness провере.
+    https://arxiv.org/abs/1508.05326
+
+29. Williams, A., et al. (2018). A Broad-Coverage Challenge Corpus for Sentence Understanding through Inference (MultiNLI).
+    — MultiNLI за робуснију NLI евалуацију.
+    https://arxiv.org/abs/1704.02656
+
+30. Honovich, O., et al. (2022). TRUE: Re-evaluating Factual Consistency Evaluation.
+    — Унификовани benchmark за faithfulness метрике.
+    https://arxiv.org/abs/2204.04991
+
+
+================================================================================
+ПРАКТИЧНИ РЕСУРСИ ЗА ИМПЛЕМЕНТАЦИЈУ
+================================================================================
+
+Курсеви и туторијали
+•	Hugging Face NLP Course — https://huggingface.co/learn/nlp-course
+  (fine-tuning, сумаризација, евалуација)
+
+•	Fast.ai Practical Deep Learning — https://course.fast.ai/
+  (практични deep learning)
+
+•	Ollama документација — https://github.com/ollama/ollama
+  (покретање локалних LLM модела)
+
+Алати за евалуацију
+•	rouge-score (Python) — pip install rouge-score
+•	bert-score (Python) — pip install bert-score
+•	summac (faithfulness) — pip install summac
+•	Hugging Face evaluate библиотека — https://huggingface.co/docs/evaluate
+
+Препоручени редослед читања
+1. Jurafsky & Martin — поглавља о сумаризацији и sequence-to-sequence (основе)
+2. Liu (2023) Survey of Prompting — разумевање prompting техника
+3. Maynez et al. (2020) — faithfulness проблем (централни концепт рада)
+4. Fabbri et al. (2021) SummEval — како се евалуира сумаризација
+5. Gao et al. (2023) Survey of Hallucination — шири контекст
+6. Zhang et al. (2023) Benchmarking LLMs for News Summarization — најближи сродни рад

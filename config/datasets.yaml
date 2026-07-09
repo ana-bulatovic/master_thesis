@@ -1,0 +1,60 @@
+# Dataset configuration for master thesis project
+
+paths:
+  raw_dir: data/raw
+  processed_dir: data/processed
+
+splits:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  random_seed: 42
+
+preprocessing:
+  min_text_length: 10
+  min_summary_length: 3
+  remove_duplicates: true
+  lowercase_labels: true
+
+isarcasmeval:
+  enabled: true
+  language: en
+  source_url: https://github.com/iabufarha/iSarcasmEval
+  train_file: train/train.En.csv
+  test_file: test/task_A_En_test.csv
+  text_column: tweet
+  test_text_column: text
+  label_column: sarcastic
+  # Uses predefined train/test split from SemEval 2022
+
+amazon_reviews_2023:
+  enabled: true
+  # Official source (McAuley-Lab) may require legacy HF loading scripts.
+  hf_dataset: McAuley-Lab/Amazon-Reviews-2023
+  hf_config: raw_review_All_Beauty
+  hf_split: full
+  # Recommended default mirror in Parquet format (same Amazon Reviews 2023 data)
+  fallback_hf_dataset: BarbaDLuca/amazon-reviews-2023-with-asin
+  fallback_data_dir: All_Beauty
+  rating_column: rating
+  text_column: text
+  title_column: title
+  sentiment_mapping:
+    negative: [1, 2]
+    neutral: [3]
+    positive: [4, 5]
+  # Limits per split (null = all available up to max_samples)
+  max_samples: 10000
+  require_title_for_summarization: true
+
+xsum:
+  enabled: true
+  hf_dataset: EdinburghNLP/xsum
+  text_column: document
+  summary_column: summary
+  max_samples: 5000
+  # XSum has official train/validation/test splits
+
+output:
+  format: jsonl
+  save_metadata: true
